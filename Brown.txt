@@ -1,0 +1,82 @@
+#include "opencv2/highgui/highgui.hpp"
+#include <iostream>
+#include <vector>
+#include "opencv2/opencv.hpp"
+
+using namespace cv;
+using namespace std;
+\
+
+int main(int argc, char* argv[])
+{
+	VideoCapture cap(1); // open the video camera no. 0
+
+	if (!cap.isOpened())  // if not success, exit program
+	{
+		cout << "Cannot open the video cam" << endl;
+		return -1;
+	}
+
+	double dWidth = cap.get(CV_CAP_PROP_FRAME_WIDTH); //get the width of frames of the video
+	double dHeight = cap.get(CV_CAP_PROP_FRAME_HEIGHT); //get the height of frames of the video
+
+	cout << "Frame size : " << dWidth << " x " << dHeight << endl;
+
+	namedWindow("MyVideo", CV_WINDOW_AUTOSIZE); //create a window called "MyVideo"
+
+	while (1)
+	{
+		Mat frame;
+
+		bool bSuccess = cap.read(frame); // read a new frame from video
+
+		if (!bSuccess) //if not success, break loop
+		{
+			cout << "Cannot read a frame from video stream" << endl;
+			break;
+		}
+
+
+		Mat3b hsv;
+		cvtColor(frame, hsv, COLOR_BGR2HSV);
+
+		Mat1b mask1, mask2;
+		inRange(hsv, Scalar(0, 100, 20), Scalar(10, 255, 255), mask1);
+		inRange(hsv, Scalar(170, 100, 20), Scalar(180, 255, 255), mask2);
+
+		Mat1b mask = mask1 | mask2;
+
+		Mat1b kernel = getStructuringElement(MORPH_ELLIPSE, Size(7, 7));
+		morphologyEx(mask, mask, MORPH_OPEN, kernel);
+
+		vector<vector<Point>> contours;
+		findContours(mask.clone(), contours, CV_RETR_LIST, CV_CHAIN_APPROX_SIMPLE);
+
+		Mat3b res = frame.clone();
+		for (int i = 0; i<contours.size(); ++i)
+		{
+			drawContours(res, contours, i, Scalar(0, 255, 0));
+
+			RotatedRect r = minAreaRect(contours[i]);
+			Point2f pts[4];
+			r.points(pts);
+
+			for (int j = 0; j < 4; ++j)
+			{
+				line(res, pts[j], pts[(j + 1) % 4], Scalar(0, 0, 255));
+			}
+
+			Rect box = boundingRect(contours[i]);
+			rectangle(res, box, Scalar(255, 0, 0));
+		}
+
+		imshow("Original", frame);
+		imshow("Segmented", res);
+		waitKey();
+
+		return 0;
+	}
+
+	return 0;
+
+}
